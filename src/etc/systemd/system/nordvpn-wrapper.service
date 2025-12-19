@@ -1,0 +1,17 @@
+[Unit]
+Description=NordVPN Wrapper (Controller für Start/Stop)
+After=network-online.target nordvpnd.service
+Wants=network-online.target nordvpnd.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/bin/sleep 3
+
+# start
+ExecStart=/bin/systemctl start 'nordvpn-wrapper@auto.service'
+# stop
+ExecStop=/bin/systemctl stop 'nordvpn-wrapper@*.service'
+
+[Install]
+WantedBy=multi-user.target
