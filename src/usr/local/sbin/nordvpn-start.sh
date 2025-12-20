@@ -46,6 +46,18 @@ del_pref() {
   done
 }
 
+# WG-Controlpakete (wg0 fwmark=0x77) IMMER über main (eth0) routen
+ensure_wg_main_rule() {
+  local pref=60
+  # alte/duplizierte Variante defensiv entfernen
+  while ip -4 rule show | grep -qE "^[[:space:]]*$pref:.*fwmark 0x77 .* lookup main"; do
+    break
+  done
+  # falls nicht vorhanden: hinzufügen
+  if ! ip -4 rule show | grep -qE "fwmark 0x77 .* lookup main"; then
+    ip -4 rule add pref "$pref" fwmark 0x77 lookup main
+  fi
+}
 
 # Robustheit direkt nach Reboot:
 # warten, bis eth1 eine IP hat
@@ -54,6 +66,10 @@ for i in {1..10}; do
   sleep 0.5
 done
 
+# Warum?
+# Weil nordvpn-start.sh aktiv in Routing eingreift – wir stellen sicher,
+# dass WG-Control immer “drüber liegt”.
+#ensure_wg_main_rule
 
 # kurz vor dem Connect: rp_filter lockern (Handshake-sicher)
 sysctl -w net.ipv4.conf.all.rp_filter=0  >/dev/null
@@ -203,15 +219,19 @@ ip route replace table ${TBL_VPN} default dev "${VPN_IF}"
 
 # LAN → vpn
 del_pref 1000
-ip -4 rule add pref 1000 from ${LAN_NET} lookup ${TBL_VPN}
+# ip -4 rule add pref 1000 from ${LAN_NET} lookup ${TBL_VPN}
+ip -4 rule add pref 1000 from ${LAN_NET} lookup ${TBL_VPN} 2>/dev/null || true
 
 # WG → vpn (muss oberhalb fwmark 110, unterhalb to:90 liegen)
 del_pref 95
-ip -4 rule add pref 95 from ${WG_NET} lookup ${TBL_VPN}
+# ip -4 rule add pref 95 from ${WG_NET} lookup ${TBL_VPN}
+ip -4 rule add pref 95 from ${WG_NET} lookup ${TBL_VPN} 2>/dev/null || true
 
 # fwmark 0x520 → vpn
 del_pref 110
-ip -4 rule add fwmark 0x520 lookup ${TBL_VPN} priority 110
+# ip -4 rule add fwmark 0x520 lookup ${TBL_VPN} priority 110
+ip -4 rule add fwmark 0x520 lookup ${TBL_VPN} priority 110 2>/dev/null || true
+
 
 
 

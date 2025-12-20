@@ -11,6 +11,14 @@ mkdir -p "$(dirname "$LOGFILE")"
 touch "$LOGFILE"
 log(){ printf '%s [STOP ] %s\n' "$(date '+%F %T')" "$*" | tee -a "$LOGFILE" ; }
 
+# WG-Controlpakete (wg0 fwmark=0x77) IMMER über main routen
+ensure_wg_main_rule() {
+  local pref=60
+  if ! ip -4 rule show | grep -qE "fwmark 0x77 .* lookup main"; then
+    ip -4 rule add pref "$pref" fwmark 0x77 lookup main
+  fi
+}
+
 snapshot() {
   # show all rules: sudo nft list ruleset
   echo " "
@@ -28,8 +36,15 @@ snapshot() {
 # Dynamische Rules entfernen:
 #
 
+#
+# Hinweis: ich nehme bewusst keinen del_pref 60 irgendwo rein – diese Regel soll „statisch“ bleiben.
+# siehe auch in nordvpn-start.sh 'ensure_wg_main_rule'.
+#ensure_wg_main_rule
+
 # 1) Dynamische fwmark-Umschaltung zurückdrehen
+# defensiv: falls schon eine 110er Rule existiert, einmal löschen
 ip rule del fwmark 0x520 lookup ${TBL_VPN} 2>/dev/null || true
+ip -4 rule del pref 110 2>/dev/null || true
 ip rule add fwmark 0x520 lookup ${TBL_WAN} priority 110 2>/dev/null || true
 
 # 2) Source-Policy für LAN via vpn entfernen (falls sie gesetzt wurde)
