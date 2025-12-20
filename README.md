@@ -15,5 +15,3 @@ $ git branch -M main
 ### GitHub
 $ git remote add origin https://github.com/westphilm/zerberus.git
 $ git push -u origin main
-$ his github
-$ hs github

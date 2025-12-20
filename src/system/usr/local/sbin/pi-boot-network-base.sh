@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/system.usr/bin/env bash
 # pi-boot-network-base.sh
 # Dauerhafte Grundregeln für Pi als Gateway + spätere NordVPN-Nutzung.
 
@@ -60,7 +60,7 @@ del_pref 100
 
 
 ###############################################################################
-# 3) nftables Grundgerüst (FORWARD + NAT + MSS) in /etc/nftables.conf
+# 3) nftables Grundgerüst (FORWARD + NAT + MSS) in /system.etc/nftables.conf
 ###############################################################################
 
 ### 4) sysctl
