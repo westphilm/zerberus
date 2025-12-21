@@ -179,7 +179,7 @@ def deploy_one(entry: FileEntry, backups_root: Path, dry_run: bool) -> bool:
 
 def systemd_daemon_reload(dry_run: bool) -> None:
     cmd = ["systemctl", "daemon-reload"]
-    log("==> SYSTEMD: daemon-reload")
+    log("==> SYSTEMD: daemon-reload inited")
     if dry_run:
         log(f"  - (dry-run) would run: {' '.join(cmd)}")
         return
@@ -231,6 +231,7 @@ def main() -> int:
     # Service reload (systemd daemon-reload) - if requested
     if args.systemd_reload:
         try:
+            log("==> SYSTEMD: daemon-reload triggered")
             systemd_daemon_reload(dry_run=args.dry_run)
         except Exception as e:
             log(f"ERROR: systemd reload failed: {e}")
