@@ -15,8 +15,3 @@ RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
-
-/usr/local/sbin/pi-boot-network-base.sh
-
-$ sudo ls -la /usr/local/sbin/pi-boot-network-base.sh
--rwxr-xr-x 1 root root 2348 21. Dez 04:40 /usr/local/sbin/pi-boot-network-base.sh
