@@ -11,6 +11,24 @@ files:
     owner: root
     group: root
 
+  - src: src/system/etc/unbound/unbound.conf.d/pi-hole.conf
+    dst: /etc/unbound/unbound.conf.d/pi-hole.conf
+    mode: "0644"
+    owner: root
+    group: root
+
+  - src: src/system/etc/dnsmasq.conf
+    dst: /etc/dnsmasq.conf
+    mode: "0644"
+    owner: root
+    group: root
+
+  - src: src/system/etc/dnsmasq-dhcp.conf
+    dst: /etc/dnsmasq-dhcp.conf
+    mode: "0644"
+    owner: root
+    group: root
+
   - src: src/system/etc/systemd/system/wg0.service
     dst: /etc/systemd/system/wg0.service
     mode: "0644"
