@@ -179,7 +179,7 @@ def deploy_one(entry: FileEntry, backups_root: Path, dry_run: bool) -> bool:
 
 def systemd_daemon_reload(dry_run: bool) -> None:
     cmd = ["systemctl", "daemon-reload"]
-    log("==> SYSTEMD: daemon-reload inited")
+    log("==> SYSTEMD: daemon-reload")
     if dry_run:
         log(f"  - (dry-run) would run: {' '.join(cmd)}")
         return
