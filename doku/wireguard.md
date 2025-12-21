@@ -22,7 +22,7 @@ Inhalte:
 - /etc/zerberus/credentials/wg0_privatekey → nur der PrivateKey (eine Zeile)
 - /etc/zerberus/credentials/wg0_peer_publickey → nur der Peer PublicKey (eine Zeile)
 
-#### Inbetriebnahme
+#### Initiale Inbetriebnahme
 Zunächst muss der Standard-Service-Starter `wg-quick@wg0` **deaktiviert** werden.
 Damit wird auch die Konfigurationsdatei `/etc/wireguard/wg0.conf` **obsolete**.
 ```bash
@@ -44,3 +44,4 @@ Aufrufparameter bei Servicestart sehen
 ```bash
   $ sudo systemctl show wg0 ExecStart
 ```
+

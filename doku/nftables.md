@@ -25,6 +25,5 @@
 
 ```bash 
   $ sudo nft -f /etc/nftables.conf
-# oder
   $ sudo systemctl reload nftables
 ```
