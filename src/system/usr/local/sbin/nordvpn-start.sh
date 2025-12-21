@@ -10,7 +10,7 @@ LAN_NET="192.168.50.0/24"
 WG_NET="10.6.0.0/24"
 
 TBL_VPN=100   # 'vpn'
-TBL_WAN=200   # 'wan' (nur zur Bereinigung/Kompatibilität genutzt)
+TBL_WAN=200   # 'wan'
 
 
 mkdir -p "$(dirname "$LOGFILE")"
@@ -58,13 +58,6 @@ sysctl -w net.ipv4.conf.all.rp_filter=0  >/dev/null
 sysctl -w net.ipv4.conf.default.rp_filter=0 >/dev/null
 sysctl -w net.ipv4.conf.eth0.rp_filter=0 >/dev/null
 sysctl -w net.ipv4.conf.eth1.rp_filter=0 >/dev/null
-
-#nordvpn set technology nordlynx
-#nordvpn set protocol udp
-#nordvpn set firewall off
-#nordvpn set killswitch off
-#nordvpn set meshnet off
-
 
 # 1) VPN verbunden?
 if sudo -n /usr/bin/nordvpn status | grep -qi 'Status: Connected'; then
@@ -122,20 +115,8 @@ done
 ensure_nat_for_vpn() {
   # Subnetze, die via nordlynx NAT brauchen
   local nets=("192.168.1.0/24" "192.168.50.0/24")
-  # ggf. auch WG-Clients:
-  # nets+=("10.6.0.0/24")
 
-  #for net in "${nets[@]}"; do
-  #  iptables-nft -t nat -C POSTROUTING -s "$net" -o nordlynx -j MASQUERADE 2>/dev/null \
-  #    || iptables-nft -t nat -A POSTROUTING -s "$net" -o nordlynx -j MASQUERADE
-  #done
 }
-
-# sicherstellen, dass das Interface existiert
-# ip link show nordlynx >/dev/null 2>&1 && ensure_nat_for_vpn
-
-# (optional, alte Sessions verwerfen, damit neue Flows sofort NAT nutzen)
-# conntrack -F 2>/dev/null || true
 
 ##
 ########################
@@ -174,7 +155,6 @@ ip route del table ${TBL_VPN} default 2>/dev/null || true
 ip rule del from ${WG_NET} lookup ${TBL_VPN} 2>/dev/null || true
 ip rule del pref 95 from ${WG_NET} lookup ${TBL_VPN} 2>/dev/null || true
 
-
 ### 2) Default-Route in Tabelle 'vpn' via nordlynx setzen
 ip route replace table ${TBL_VPN} default dev "${VPN_IF}"
 ##########
@@ -186,18 +166,6 @@ ip route replace table ${TBL_VPN} default dev "${VPN_IF}"
  ip route replace table ${TBL_VPN} 10.5.0.0/16     dev "${VPN_IF}"   scope link 2>/dev/null || true
 ###
 ##########
-
-
-
-### 3) LAN → via vpn (Source-Policy-Rule)
-# (Prio 1000 liegt unter/über deinen statischen Marks gemäß zuvor definierter Ordnung)
-#ip rule add pref 1000 from ${LAN_NET} lookup ${TBL_VPN} 2>/dev/null || true
-# Kopplung WG - VPN
-# WG (10.6.0.0/24) strikt über VPN erzwingen (liegt zwischen prio 90 und 100/110)
-#ip rule add pref 95 from ${WG_NET} lookup ${TBL_VPN} 2>/dev/null || true
-### 4) WG-Payload (fwmark 0x520) explizit über vpn leiten
-# (Reihenfolge: statische Marks wie 0x77/0x355 kommen dauerhaft im Boot-Setup)
-#ip rule add fwmark 0x520 lookup ${TBL_VPN} priority 110 2>/dev/null || true
 
 # LAN → vpn
 del_pref 1000
@@ -213,8 +181,6 @@ ip -4 rule add pref 95 from ${WG_NET} lookup ${TBL_VPN} 2>/dev/null || true
 del_pref 110
 # ip -4 rule add fwmark 0x520 lookup ${TBL_VPN} priority 110
 ip -4 rule add fwmark 0x520 lookup ${TBL_VPN} priority 110 2>/dev/null || true
-
-
 
 
 ### 5)

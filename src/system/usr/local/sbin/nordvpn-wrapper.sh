@@ -1,7 +1,7 @@
 #!/bin/env bash
 set -euo pipefail
 
-# → HIER deine bestehenden Skripte eintragen:
+# → NordVPN Start- & Stopscripte:
 POST_UP="/usr/local/sbin/nordvpn-start.sh"
 POST_DOWN="/usr/local/sbin/nordvpn-stop.sh"
 
@@ -9,7 +9,7 @@ ACTION="${1:-start}"
 # shift || true  # Rest-Args in "$@"
 NVPSRV="${2:-}"
 
-# Aus Environment-Datei (optional): VPN_ARGS='--group p2p --protocol nordlynx'
+# Ggf Aus Environment-Datei (optional): VPN_ARGS='--group p2p --protocol nordlynx'
 # VPN_ARGS="${VPN_ARGS:-}"
 
 echo "Optional ARGs: $NVPSRV"
@@ -28,7 +28,7 @@ case "$ACTION" in
     if [[ -x "$POST_DOWN" ]]; then "$POST_DOWN" || true; fi
     ;;
   restart)
-    echo "[wrapper] restarting ..."
+    echo "[wrapper] Restarting ..."
     #sudo nordvpn disconnect || true
     #sleep 2
     if [[ -x "$POST_DOWN" ]]; then "$POST_DOWN" || true; fi
@@ -40,7 +40,7 @@ case "$ACTION" in
     if [[ -x "$POST_UP" ]]; then "$POST_UP" "$NVPSRV"; fi
     ;;
   status)
-    echo "[wrapper] restarting ..."
+    echo "[wrapper] Restarting ..."
     sudo nordvpn status
     sudo curl -s https://ifconfig.io
     ;;

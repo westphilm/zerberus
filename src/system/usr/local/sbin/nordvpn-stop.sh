@@ -84,6 +84,6 @@ fi
 
 snapshot "Finish"
 
-log "Ready: 192.168.50.0/24 geht wieder direkt über WAN."
+log "Ready: 192.168.50.0/24 geht direkt über WAN (if permitted)."
 log "Logfile: /var/log/nordvpn-routing.log"
 
