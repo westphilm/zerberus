@@ -3,3 +3,4 @@
 /zerberus.iml
 
 /src/system/etc/zerberus/credentials/
+/src/system/etc/wireguard/wg0.conf
