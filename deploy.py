@@ -192,7 +192,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Deploy zerberus system files from manifest.")
     parser.add_argument("--manifest", default="manifest.yaml", help="Path to manifest YAML (default: manifest.yaml)")
     parser.add_argument("--dry-run", action="store_true", help="Show actions, do not modify system")
-    parser.add_argument("--no-systemd-reload", action="store_true", help="Skip 'systemctl daemon-reload'")
+    parser.add_argument("--systemd-reload", action="store_true", help="Run 'systemctl daemon-reload' after deploy")
     args = parser.parse_args()
 
     if os.geteuid() != 0:
@@ -206,11 +206,12 @@ def main() -> int:
     if not args.dry_run:
         backups_root.mkdir(parents=True, exist_ok=True)
 
-    log(f"Repo root:    {repo_root}")
-    log(f"Manifest:     {manifest_path}")
-    log(f"Backups root: {backups_root}  (1-level, overwrite)")
-    log(f"Dry-run:      {args.dry_run}")
-    log("Verify:       false (global)")
+    log(f"Repo root:      {repo_root}")
+    log(f"Manifest:       {manifest_path}")
+    log(f"Backups root:   {backups_root}  (1-level, overwrite)")
+    log(f"Dry-run:        {args.dry_run}")
+    log("Verify:          false (global)")
+    log(f"Systemd reload: {args.systemd_reload}")
 
     try:
         entries = load_manifest(manifest_path, repo_root=repo_root)
@@ -227,15 +228,15 @@ def main() -> int:
         log(f"ERROR: deploy failed: {e}")
         return EXIT_DEPLOY
 
-    # Service reload (systemd daemon-reload) - requested
-    if not args.no_systemd_reload:
+    # Service reload (systemd daemon-reload) - if requested
+    if args.systemd_reload:
         try:
             systemd_daemon_reload(dry_run=args.dry_run)
         except Exception as e:
             log(f"ERROR: systemd reload failed: {e}")
             return EXIT_SYSTEMD
     else:
-        log("==> SYSTEMD: daemon-reload skipped (--no-systemd-reload)")
+        log("==> SYSTEMD: daemon-reload skipped (default)")
 
     log("==> DONE")
     log(f"Changes applied: {changed_any}")
