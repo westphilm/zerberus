@@ -52,7 +52,7 @@ del_pref 45
 ip -4 rule add fwmark 0x77 lookup main priority 45
 
 del_pref 90
-ip -4 rule add to ${WG_NET} lookup main         priority 90
+ip -4 rule add to ${WG_NET} lookup main priority 90
 
 # DoT wird nicht mehr verwendet
 del_pref 100

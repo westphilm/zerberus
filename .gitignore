@@ -1,3 +1,5 @@
 ### Idea Project Config ###
 .idea
 /zerberus.iml
+
+/src/system/etc/zerberus/credentials/

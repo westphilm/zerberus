@@ -46,30 +46,12 @@ del_pref() {
   done
 }
 
-# WG-Controlpakete (wg0 fwmark=0x77) IMMER über main (eth0) routen
-ensure_wg_main_rule() {
-  local pref=60
-  # alte/duplizierte Variante defensiv entfernen
-  while ip -4 rule show | grep -qE "^[[:space:]]*$pref:.*fwmark 0x77 .* lookup main"; do
-    break
-  done
-  # falls nicht vorhanden: hinzufügen
-  if ! ip -4 rule show | grep -qE "fwmark 0x77 .* lookup main"; then
-    ip -4 rule add pref "$pref" fwmark 0x77 lookup main
-  fi
-}
-
 # Robustheit direkt nach Reboot:
 # warten, bis eth1 eine IP hat
 for i in {1..10}; do
   ip -4 addr show dev eth1 | grep -q 'inet ' && break
   sleep 0.5
 done
-
-# Warum?
-# Weil nordvpn-start.sh aktiv in Routing eingreift – wir stellen sicher,
-# dass WG-Control immer “drüber liegt”.
-#ensure_wg_main_rule
 
 # kurz vor dem Connect: rp_filter lockern (Handshake-sicher)
 sysctl -w net.ipv4.conf.all.rp_filter=0  >/dev/null
