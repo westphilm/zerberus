@@ -1,0 +1,48 @@
+files:
+  - src: src/system/etc/systemd/system/nordvpn-wrapper.service
+    dst: /etc/systemd/system/nordvpn-wrapper.service
+    mode: "0644"
+    owner: root
+    group: root
+
+  - src: src/system/etc/systemd/system/wg0.service
+    dst: /etc/systemd/system/wg0.service
+    mode: "0644"
+    owner: root
+    group: root
+
+  - src: src/system/etc/nftables.conf
+    dst: /etc/nftables.conf
+    mode: "0644"
+    owner: root
+    group: root
+
+  - src: src/system/usr/local/sbin/nordvpn-start.sh
+    dst: /usr/local/sbin/nordvpn-start.sh
+    mode: "0755"
+    owner: root
+    group: root
+
+  - src: src/system/usr/local/sbin/nordvpn-stop.sh
+    dst: /usr/local/sbin/nordvpn-stop.sh
+    mode: "0755"
+    owner: root
+    group: root
+
+  - src: src/system/usr/local/sbin/nordvpn-wrapper.sh
+    dst: /usr/local/sbin/nordvpn-wrapper.sh
+    mode: "0755"
+    owner: root
+    group: root
+
+  - src: src/system/usr/local/sbin/pi-boot-network-base.sh
+    dst: /usr/local/sbin/pi-boot-network-base.sh
+    mode: "0755"
+    owner: root
+    group: root
+
+  - src: src/system/usr/local/sbin/wg-debug-snapshot.sh
+    dst: /usr/local/sbin/wg-debug-snapshot.sh
+    mode: "0755"
+    owner: root
+    group: root
