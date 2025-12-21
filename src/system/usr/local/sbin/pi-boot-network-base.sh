@@ -1,4 +1,4 @@
-#!/system.usr/bin/env bash
+#!/bin/env bash
 # pi-boot-network-base.sh
 # Dauerhafte Grundregeln für Pi als Gateway + spätere NordVPN-Nutzung.
 

@@ -1,4 +1,4 @@
-#!/system.usr/bin/env bash
+#!/bin/env bash
 set -euo pipefail
 
 # → HIER deine bestehenden Skripte eintragen:
