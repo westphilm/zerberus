@@ -231,7 +231,6 @@ def main() -> int:
     # Service reload (systemd daemon-reload) - if requested
     if args.systemd_reload:
         try:
-            log("SYSTEMD: daemon-reload triggered")
             systemd_daemon_reload(dry_run=args.dry_run)
         except Exception as e:
             log(f"ERROR: systemd reload failed: {e}")
