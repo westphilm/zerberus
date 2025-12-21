@@ -11,7 +11,7 @@ files:
     owner: root
     group: root
 
-  - src: src/system/etc/unbound/unbound.conf.d/unbound-pi-hole.conf
+  - src: src/system/etc/unbound/unbound.conf.d/pi-hole.conf
     dst: /etc/unbound/unbound.conf.d/pi-hole.conf
     mode: "0644"
     owner: root
