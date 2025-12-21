@@ -1,0 +1,21 @@
+[Unit]
+Description=NordVPN wrapper (start/stop/status) [%i]
+After=network-online.target nordvpnd.service
+Wants=network-online.target nordvpnd.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/bin/sleep 3
+
+# Optional: zusätzliche Argumente/Flags über Env-Datei
+EnvironmentFile=-/etc/nordvpn-wrapper.env
+
+# start
+ExecStart=/usr/local/sbin/nordvpn-wrapper.sh start %I
+
+# stop
+ExecStop=/usr/local/sbin/nordvpn-wrapper.sh stop
+
+[Install]
+WantedBy=multi-user.target

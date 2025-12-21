@@ -5,6 +5,12 @@ files:
     owner: root
     group: root
 
+  - src: src/system/etc/systemd/system/nordvpn-wrapper@.service
+    dst: /etc/systemd/system/nordvpn-wrapper@.service
+    mode: "0644"
+    owner: root
+    group: root
+
   - src: src/system/etc/systemd/system/wg0.service
     dst: /etc/systemd/system/wg0.service
     mode: "0644"
