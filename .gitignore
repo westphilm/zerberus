@@ -4,3 +4,4 @@
 
 /src/system/etc/zerberus/credentials/
 /src/system/etc/wireguard/wg0.conf
+/src/system/etc/zerberus/unbound-local-overrides.conf
