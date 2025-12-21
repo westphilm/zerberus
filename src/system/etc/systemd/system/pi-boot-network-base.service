@@ -10,9 +10,13 @@ Type=oneshot
 # kleine Guard-Waits, damit wir nicht ins Leere greifen:
 TimeoutStartSec=30
 ExecStartPre=/bin/sh -c 'until nft -c list ruleset >/dev/null 2>&1; do echo "[BOOT] waiting for nftables…"; sleep 0.5; done'
-# ExecStartPre=/bin/sh -c 'until ip -4 addr show wg0 | grep -q "10\\.6\\."; do echo "[BOOT] waiting for wg0 address…"; sleep 0.5; done'
 ExecStart=/usr/local/sbin/pi-boot-network-base.sh
 RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
+
+/usr/local/sbin/pi-boot-network-base.sh
+
+$ sudo ls -la /usr/local/sbin/pi-boot-network-base.sh
+-rwxr-xr-x 1 root root 2348 21. Dez 04:40 /usr/local/sbin/pi-boot-network-base.sh
