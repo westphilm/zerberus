@@ -46,6 +46,15 @@ del_pref() {
   done
 }
 
+replace_rule() {
+  # Idempotent ersetzen (oder setzen) einer Regel mit fixer Priorität
+  # Beispiel: replace_rule 1000 from ${LAN_NET} lookup ${TBL_VPN}
+  local pref="$1"
+  shift
+  del_pref "$pref"
+  ip -4 rule add pref "$pref" "$@" 2>/dev/null || true
+}
+
 # Robustheit direkt nach Reboot:
 # warten, bis eth1 eine IP hat
 for i in {1..10}; do
@@ -149,11 +158,10 @@ ip link show dev nordlynx >/dev/null 2>&1 || {
 ### 1) Alte/doppelte dynamische Regeln defensiv entfernen
 ip rule del fwmark 0x520 lookup ${TBL_VPN} 2>/dev/null || true
 ip rule del fwmark 0x520 lookup ${TBL_WAN} 2>/dev/null || true
-ip rule del from ${LAN_NET} lookup ${TBL_VPN} 2>/dev/null || true
-ip rule del pref 1000 from ${LAN_NET} lookup ${TBL_VPN} 2>/dev/null || true
 ip route del table ${TBL_VPN} default 2>/dev/null || true
-ip rule del from ${WG_NET} lookup ${TBL_VPN} 2>/dev/null || true
-ip rule del pref 95 from ${WG_NET} lookup ${TBL_VPN} 2>/dev/null || true
+del_pref 1000
+del_pref 95
+del_pref 110
 
 ### 2) Default-Route in Tabelle 'vpn' via nordlynx setzen
 ip route replace table ${TBL_VPN} default dev "${VPN_IF}"
@@ -168,20 +176,17 @@ ip route replace table ${TBL_VPN} default dev "${VPN_IF}"
 ##########
 
 # LAN → vpn
-del_pref 1000
-ip -4 rule add pref 1000 from ${LAN_NET} lookup ${TBL_VPN} 2>/dev/null || true
+replace_rule 1000 from ${LAN_NET} lookup ${TBL_VPN}
 
 # Leitet sämtlichen Traffic vom WireGuard-Clientnetz standardmäßig in die VPN-Routingtabelle.
 # Erzwingt: WG-Clients → Internet über VPN.
 # Ausnahmen (LAN / lokale Netze) werden innerhalb der VPN-Tabelle über explizite Routen geregelt.
-del_pref 95
-ip -4 rule add pref 95 from ${WG_NET} lookup ${TBL_VPN} 2>/dev/null || true
+replace_rule 95 from ${WG_NET} lookup ${TBL_VPN}
 
 # Leitet allen Traffic mit fwmark 0x520 in die VPN-Routingtabelle.
 # Dieses Mark kennzeichnet VPN-Nutzdaten (z. B. von LAN-Clients), die gezielt über nordlynx geroutet werden sollen.
 # Ermöglicht saubere Trennung zwischen VPN-Payload und nicht-VPN-Traffic auf Routing-Ebene.
-del_pref 110
-ip -4 rule add fwmark 0x520 lookup ${TBL_VPN} priority 110 2>/dev/null || true
+replace_rule 110 fwmark 0x520 lookup ${TBL_VPN}
 
 ### 5)
 # nach erfolgreichem Connect + Regeln:
