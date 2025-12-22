@@ -35,28 +35,20 @@ echo "[BOOT] Starte dauerhaftes Basis-Netzsetup …"
 ip route replace table ${TBL_WAN}  default via ${WAN_GW} dev ${WAN_IF} src ${WAN_IP}
 ip route replace table ${TBL_VPN}  ${LAN_NET} dev ${LAN_IF}
 ip route replace table ${TBL_VPN}  192.168.1.0/24 dev ${WAN_IF}
-# DoT wird nicht mehr verwendet
-# ip route replace table ${TBL_NOVPN} default via ${WAN_GW} dev ${WAN_IF} src ${WAN_IP}
 
+#### Statische Policy-Rules (dauerhaft, kollisionsfest)
 
-### 2) Statische Policy-Rules (dauerhaft)
-# WireGuard-Bypass immer über WAN
-#ip rule add fwmark 0x77  lookup ${TBL_WAN}  priority 45    2>/dev/null || true
-# Zielbasierte Ausnahme: eigenes WG-Subnetz bleibt im main
-#ip rule add to ${WG_NET} lookup main priority 90           2>/dev/null || true
-# DoT/Bypass (novpn) dauerhaft
-#ip rule add fwmark 0x355 lookup ${TBL_NOVPN} priority 100  2>/dev/null || true
-
-# Statische Policy-Rules (dauerhaft, kollisionsfest)
+# Leitet sämtlichen Traffic mit fwmark 0x77 explizit über die Routing-Tabelle main.
+# Wird für WireGuard-Steuerverkehr (Handshake, Keepalive) genutzt, damit dieser nie über das VPN geroutet wird.
+# Verhindert instabile WG-Verbindungen bei aktivem VPN.
 del_pref 45
 ip -4 rule add fwmark 0x77 lookup main priority 45
 
+# Stellt sicher, dass Traffic zum WireGuard-Netz (wg0, inkl. Pi selbst und Peers) immer über main geroutet wird.
+# Verhindert, dass Antworten oder interne WG-Pakete fälschlich ins VPN laufen.
+# Grundlage für stabile Erreichbarkeit von WG-Clients und lokalen Services.
 del_pref 90
 ip -4 rule add to ${WG_NET} lookup main priority 90
-
-# DoT wird nicht mehr verwendet
-del_pref 100
-# ip -4 rule add fwmark 0x355 lookup ${TBL_NOVPN} priority 100
 
 
 ###############################################################################

@@ -160,28 +160,28 @@ ip route replace table ${TBL_VPN} default dev "${VPN_IF}"
 ##########
  # lokale Netze auch in table vpn bekannt machen (damit Lokalziele NICHT in den Tunnel gehen)
  ip route replace table ${TBL_VPN} 192.168.50.0/24 dev "${LAN_IF}" scope link
- ip route replace table ${TBL_VPN} 192.168.1.0/24  dev eth0          scope link
- ip route replace table ${TBL_VPN} 10.6.0.0/24     dev wg0           scope link 2>/dev/null || true
+ ip route replace table ${TBL_VPN} 192.168.1.0/24  dev eth0        scope link
+ ip route replace table ${TBL_VPN} 10.6.0.0/24     dev wg0         scope link 2>/dev/null || true
  # (optional, falls nicht ohnehin da)
- ip route replace table ${TBL_VPN} 10.5.0.0/16     dev "${VPN_IF}"   scope link 2>/dev/null || true
+ ip route replace table ${TBL_VPN} 10.5.0.0/16     dev "${VPN_IF}" scope link 2>/dev/null || true
 ###
 ##########
 
 # LAN → vpn
 del_pref 1000
-# ip -4 rule add pref 1000 from ${LAN_NET} lookup ${TBL_VPN}
 ip -4 rule add pref 1000 from ${LAN_NET} lookup ${TBL_VPN} 2>/dev/null || true
 
-# WG → vpn (muss oberhalb fwmark 110, unterhalb to:90 liegen)
+# Leitet sämtlichen Traffic vom WireGuard-Clientnetz standardmäßig in die VPN-Routingtabelle.
+# Erzwingt: WG-Clients → Internet über VPN.
+# Ausnahmen (LAN / lokale Netze) werden innerhalb der VPN-Tabelle über explizite Routen geregelt.
 del_pref 95
-# ip -4 rule add pref 95 from ${WG_NET} lookup ${TBL_VPN}
 ip -4 rule add pref 95 from ${WG_NET} lookup ${TBL_VPN} 2>/dev/null || true
 
-# fwmark 0x520 → vpn
+# Leitet allen Traffic mit fwmark 0x520 in die VPN-Routingtabelle.
+# Dieses Mark kennzeichnet VPN-Nutzdaten (z. B. von LAN-Clients), die gezielt über nordlynx geroutet werden sollen.
+# Ermöglicht saubere Trennung zwischen VPN-Payload und nicht-VPN-Traffic auf Routing-Ebene.
 del_pref 110
-# ip -4 rule add fwmark 0x520 lookup ${TBL_VPN} priority 110
 ip -4 rule add fwmark 0x520 lookup ${TBL_VPN} priority 110 2>/dev/null || true
-
 
 ### 5)
 # nach erfolgreichem Connect + Regeln:
@@ -190,7 +190,6 @@ sysctl -w net.ipv4.conf.default.rp_filter=2   >/dev/null
 sysctl -w net.ipv4.conf.eth0.rp_filter=2      >/dev/null
 sysctl -w net.ipv4.conf.eth1.rp_filter=2      >/dev/null
 sysctl -w net.ipv4.ip_forward=1               >/dev/null
-
 
 echo "OK: NordVPN dynamische Regeln aktiv (LAN via vpn, fwmark 0x520 → vpn)."
 
@@ -201,4 +200,3 @@ log "Log: $LOGFILE"
 log "Ready: LAN 192.168.50.0/24 routes via NordVPN to $PUBLIC_IP"
 
 exit 0
-
