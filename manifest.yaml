@@ -47,6 +47,12 @@ files:
     owner: root
     group: root
 
+  - src: src/system/etc/sysctl.conf
+    dst: /etc/sysctl.conf
+    mode: "0644"
+    owner: root
+    group: root
+
   - src: src/system/usr/local/sbin/nordvpn-start.sh
     dst: /usr/local/sbin/nordvpn-start.sh
     mode: "0755"
