@@ -1,6 +1,7 @@
 ### Idea Project Config ###
 .idea
 /zerberus.iml
+/backups/
 
 /src/system/etc/zerberus/credentials/
 /src/system/etc/wireguard/wg0.conf
