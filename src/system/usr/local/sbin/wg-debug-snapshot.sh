@@ -1,4 +1,4 @@
-#!/system.usr/bin/env bash
+#!/bin/env bash
 set -euo pipefail
 
 TS="$(date '+%F_%H%M%S')"
