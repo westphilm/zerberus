@@ -5,3 +5,4 @@
 /src/system/etc/zerberus/credentials/
 /src/system/etc/wireguard/wg0.conf
 /src/system/etc/zerberus/unbound-local-overrides.conf
+/src/system/etc/unbound/unbound.conf.d/pi-hole.conf.bak
