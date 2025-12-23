@@ -38,12 +38,12 @@ git push --force --tags
 ```bash
 git branch backup-before-scrub
 
-git filter-repo --path src/system/etc/unbound/unbound.conf.d/pi-hole.conf --invert-paths
+git filter-repo --path src/system/etc/unbound/unbound.conf.d/unbound-pi-hole.conf --invert-paths
 
 git push --force --all
 git push --force --tags
 
-git log --all -- src/system/etc/unbound/unbound.conf.d/pi-hole.conf
+git log --all -- src/system/etc/unbound/unbound.conf.d/unbound-pi-hole.conf
 
 git fetch
 git reset --hard origin/main
