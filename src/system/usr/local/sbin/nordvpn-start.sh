@@ -94,6 +94,25 @@ verify_wan_iface() {
   fi
 }
 
+verify_killswitch_baseline() {
+  if ! nft list chain ip filter FORWARD >/dev/null 2>&1; then
+    log "Fehler: nftables-Chain ip filter FORWARD nicht verfügbar – Killswitch unklar"
+    return 1
+  fi
+  if ! nft list chain ip filter FORWARD | grep -q 'iifname { "eth1", "wg0" } oifname "eth0".*c_drop_generic.*drop'; then
+    log "Fehler: erwartete eth0-Killswitch-Drop-Regel fehlt (LAN/WG → eth0)"
+    return 1
+  fi
+  if ! nft list chain ip nat POSTROUTING >/dev/null 2>&1; then
+    log "Fehler: nftables-Chain ip nat POSTROUTING nicht verfügbar – NAT-Überwachung fehlt"
+    return 1
+  fi
+  if ! nft list chain ip nat POSTROUTING | grep -q 'c_masq_wan_public_bytes'; then
+    log "Fehler: NAT-Kontrollzähler c_masq_wan_public_bytes fehlt – Kill-Switch-Monitoring unsicher"
+    return 1
+  fi
+}
+
 # Robustheit direkt nach Reboot:
 # warten, bis eth1 eine IP hat
 for i in {1..10}; do
@@ -102,6 +121,7 @@ for i in {1..10}; do
 done
 
 verify_wan_iface "eth0" || exit 3
+verify_killswitch_baseline || exit 4
 
 if ! set_rp_filter 0 "pre-connect"; then
   log "Abbruch: rp_filter konnte nicht auf 0 gesetzt werden"
@@ -159,43 +179,6 @@ for i in {1..10}; do
   sleep 0.5
 done
 
-#############################
-# --- Nach "NordVPN connected" / sobald nordlynx up ist, einfügen ---
-#
-ensure_nat_for_vpn() {
-  # Subnetze, die via nordlynx NAT brauchen
-  local nets=("192.168.1.0/24" "192.168.50.0/24")
-
-}
-
-##
-########################
-
-# Finale Prüfung des VPN-Interfaces bevor weiter
-ip link show dev nordlynx >/dev/null 2>&1 || {
-  log "Fehler: nordlynx-Interface nicht aktiv – Verbindung fehlgeschlagen"
-  exit 2
-}
-
-
-###########################################################################################
-# Neuer Stand nach Refactoring:
-#########################################################
-
-# Neue Testvarianten, erstmal auskommentiert, evtl noch übernehmen:
-#
-### 0) Preflight: ist NordVPN (nordlynx) da?
-#if ! ip link show "${VPN_IF}" >/dev/null 2>&1; then
-#  echo "Fehler: Interface ${VPN_IF} nicht vorhanden (NordVPN nicht verbunden?). Abbruch." >&2
-#  exit 1
-#fi
-
-# kurze Warte-Schleife bis IPv4 konfiguriert ist (falls Connect gerade erst passiert ist)
-#for i in {1..20}; do
-#  if ip -4 addr show dev "${VPN_IF}" | grep -q 'inet '; then break; fi
-#  sleep 0.2
-#done
-
 ### 1) Alte/doppelte dynamische Regeln defensiv entfernen
 ip rule del fwmark 0x520 lookup ${TBL_VPN} 2>/dev/null || true
 ip rule del fwmark 0x520 lookup ${TBL_WAN} 2>/dev/null || true
@@ -206,15 +189,12 @@ del_pref 110
 
 ### 2) Default-Route in Tabelle 'vpn' via nordlynx setzen
 ip route replace table ${TBL_VPN} default dev "${VPN_IF}"
-##########
- # lokale Netze auch in table vpn bekannt machen (damit Lokalziele NICHT in den Tunnel gehen)
- ip route replace table ${TBL_VPN} 192.168.50.0/24 dev "${LAN_IF}" scope link
- ip route replace table ${TBL_VPN} 192.168.1.0/24  dev eth0        scope link
- ip route replace table ${TBL_VPN} 10.6.0.0/24     dev wg0         scope link 2>/dev/null || true
- # (optional, falls nicht ohnehin da)
- ip route replace table ${TBL_VPN} 10.5.0.0/16     dev "${VPN_IF}" scope link 2>/dev/null || true
-###
-##########
+# lokale Netze auch in table vpn bekannt machen (damit Lokalziele NICHT in den Tunnel gehen)
+ip route replace table ${TBL_VPN} 192.168.50.0/24 dev "${LAN_IF}" scope link
+ip route replace table ${TBL_VPN} 192.168.1.0/24  dev eth0        scope link
+ip route replace table ${TBL_VPN} 10.6.0.0/24     dev wg0         scope link 2>/dev/null || true
+# (optional, falls nicht ohnehin da)
+ip route replace table ${TBL_VPN} 10.5.0.0/16     dev "${VPN_IF}" scope link 2>/dev/null || true
 
 # LAN → vpn
 replace_rule 1000 from ${LAN_NET} lookup ${TBL_VPN}
@@ -236,7 +216,7 @@ if ! set_rp_filter 2 "post-setup"; then
   exit 11
 fi
 trap - EXIT
-sysctl -w net.ipv4.ip_forward=1               >/dev/null
+sysctl -w net.ipv4.ip_forward=1 >/dev/null
 
 echo "OK: NordVPN dynamische Regeln aktiv (LAN via vpn, fwmark 0x520 → vpn)."
 
