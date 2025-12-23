@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
+import textwrap
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Sequence
@@ -101,7 +103,7 @@ def git_status(timeout: int) -> CheckResult:
     lines = status_out.stdout.splitlines()
     status_line = lines[0] if lines else "clean"
     dirty_suffix = "; lokale Änderungen" if len(lines) > 1 else ""
-    repo_status = "OK" if len(lines) <= 1 else "WARN"
+    repo_status = "OK" if len(lines) <= 1 else "INFO"
     details = f"{status_line}{dirty_suffix} | {upstream_info}"
     return CheckResult("Git-Repo", repo_status, details)
 
@@ -212,10 +214,29 @@ def format_table(results: Iterable[CheckResult]) -> str:
     rows = list(results)
     name_w = max(len(r.name) for r in rows + [CheckResult("Komponente", "", "")])
     status_w = max(len(r.status) for r in rows + [CheckResult("", "Status", "")])
-    lines = [f"{'Komponente':<{name_w}}  {'Status':<{status_w}}  Details", "-" * (name_w + status_w + 11)]
+    term_width = shutil.get_terminal_size(fallback=(100, 20)).columns
+    details_w = max(20, term_width - name_w - status_w - 6)
+
+    lines = [f"{'Komponente':<{name_w}}  {'Status':<{status_w}}  Details", "-" * term_width]
     for r in rows:
-        lines.append(f"{r.name:<{name_w}}  {r.status:<{status_w}}  {r.details}")
+        wrapped = textwrap.wrap(r.details, width=details_w) or [""]
+        lines.append(f"{r.name:<{name_w}}  {r.status:<{status_w}}  {wrapped[0]}")
+        for cont in wrapped[1:]:
+            lines.append(f"{'':<{name_w}}  {'':<{status_w}}  {cont}")
     return "\n".join(lines)
+
+
+def aggregate_status(results: Iterable[CheckResult]) -> tuple[str, str]:
+    priority = {"CRIT": 3, "FAIL": 3, "WARN": 2, "INFO": 1, "OK": 0}
+    colors = {"CRIT": "\x1b[31m", "WARN": "\x1b[33m", "INFO": "\x1b[34m", "OK": "\x1b[32m"}
+    best = "OK"
+    for r in results:
+        for candidate, level in priority.items():
+            if r.status.upper() == candidate and level > priority.get(best, -1):
+                best = candidate
+    color = colors.get(best, "")
+    reset = "\x1b[0m" if color else ""
+    return best, f"Gesamtstatus: {color}{best}{reset}"
 
 
 def parse_args() -> argparse.Namespace:
@@ -242,6 +263,8 @@ def main() -> int:
     ]
     print("Zerberus Integrationsstatus")
     print(format_table(checks))
+    overall, summary_line = aggregate_status(checks)
+    print(summary_line)
     return 0
 
 
