@@ -198,7 +198,7 @@ def systemd_daemon_reload(dry_run: bool) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Deploy zerberus system files from manifest.")
-    parser.add_argument("--manifest", default="deploy/manifest.yaml", help="Path to manifest YAML (default: deploy/manifest.yaml)")
+    parser.add_argument("--manifest", default="manifest.yaml", help="Path to manifest YAML (default: manifest.yaml)")
     parser.add_argument("--dry-run", action="store_true", help="Show actions, do not modify system")
     parser.add_argument("--systemd-reload", action="store_true", help="Run 'systemctl daemon-reload' after deploy")
     args = parser.parse_args()
