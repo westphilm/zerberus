@@ -12,6 +12,7 @@ WG_NET="10.6.0.0/24"
 TBL_VPN=100   # 'vpn'
 TBL_WAN=200   # 'wan'
 
+RPF_BASELINE=2
 RPF_IFACES=(all default eth0 eth1)
 
 
@@ -75,6 +76,18 @@ set_rp_filter() {
   done
 }
 
+enforce_rp_filter_baseline() {
+  local iface current
+  for iface in "${RPF_IFACES[@]}"; do
+    current="$(sysctl -n "net.ipv4.conf.${iface}.rp_filter" 2>/dev/null || echo "")"
+    if [[ "${current}" != "${RPF_BASELINE}" ]]; then
+      log "Warnung: rp_filter ${iface} ist '${current:-unset}', setze auf ${RPF_BASELINE} (Baseline)"
+    fi
+  done
+
+  set_rp_filter "${RPF_BASELINE}" "baseline" || return 1
+}
+
 verify_wan_iface() {
   local iface="$1"
   ip link show dev "${iface}" >/dev/null 2>&1 || { log "Fehler: WAN-Interface ${iface} fehlt"; return 1; }
@@ -111,6 +124,12 @@ verify_killswitch_baseline() {
     log "Fehler: NAT-Kontrollzähler c_masq_wan_public_bytes fehlt – Kill-Switch-Monitoring unsicher"
     return 1
   fi
+
+  local wan_public_bytes
+  wan_public_bytes="$(nft list counter ip nat c_masq_wan_public_bytes 2>/dev/null | awk '/bytes/ {print $NF; exit}')"
+  if [[ -n "${wan_public_bytes}" && "${wan_public_bytes}" != "0" ]]; then
+    log "Warnung: NAT-Kontrollzähler c_masq_wan_public_bytes bereits ${wan_public_bytes} Bytes vor Start"
+  fi
 }
 
 # Robustheit direkt nach Reboot:
@@ -123,11 +142,16 @@ done
 verify_wan_iface "eth0" || exit 3
 verify_killswitch_baseline || exit 4
 
+if ! enforce_rp_filter_baseline; then
+  log "Abbruch: rp_filter Baseline ${RPF_BASELINE} konnte nicht gesetzt werden"
+  exit 9
+fi
+
 if ! set_rp_filter 0 "pre-connect"; then
   log "Abbruch: rp_filter konnte nicht auf 0 gesetzt werden"
   exit 10
 fi
-trap 'set_rp_filter 2 "cleanup-exit" || true' EXIT
+trap "set_rp_filter ${RPF_BASELINE} cleanup-exit || true" EXIT
 
 # 1) VPN verbunden?
 if sudo -n /usr/bin/nordvpn status | grep -qi 'Status: Connected'; then
@@ -211,8 +235,8 @@ replace_rule 110 fwmark 0x520 lookup ${TBL_VPN}
 
 ### 5)
 # nach erfolgreichem Connect + Regeln:
-if ! set_rp_filter 2 "post-setup"; then
-  log "Abbruch: rp_filter konnte nicht auf 2 zurückgestellt werden"
+if ! set_rp_filter "${RPF_BASELINE}" "post-setup"; then
+  log "Abbruch: rp_filter konnte nicht auf ${RPF_BASELINE} zurückgestellt werden"
   exit 11
 fi
 trap - EXIT
