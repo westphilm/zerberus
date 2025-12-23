@@ -26,6 +26,12 @@ mkdir -p "$(dirname "$LOGFILE")"
 touch "$LOGFILE"
 log(){ printf '%s [START] %s\n' "$(date '+%F %T')" "$*" | tee -a "$LOGFILE" ; }
 
+fetch_public_ip() {
+  local ip
+  ip=$(curl -s --max-time 5 --retry 2 --retry-delay 1 https://1.1.1.1/cdn-cgi/trace | awk -F= '/^ip=/{print $2; exit}')
+  echo "${ip:-unbekannt}"
+}
+
 log "Starte VPN Routing für ${LAN_NET} → ${VPN_IF}"
 
 
@@ -219,18 +225,15 @@ fi
 
 if sudo -n /usr/bin/nordvpn status | grep -qi 'Status: Connected'; then
   log "NordVPN connected"
-  PUBLIC_IP=$(curl -s https://1.1.1.1/cdn-cgi/trace | grep '^ip=' | cut -d= -f2)
-  log "PUBLIC-IP: $PUBLIC_IP"
+  PUBLIC_IP=$(fetch_public_ip)
   VPN_IP=$(ip -4 addr show nordlynx | awk '/inet / {print $2}' | cut -d/ -f1)
-  log "VPN-IP: $VPN_IP"
   WAN_IP=$(ip -4 addr show "${WAN_IF}" | awk '/inet / {print $2}' | cut -d/ -f1)
   LAN_IP=$(ip -4 addr show "${LAN_IF}" | awk '/inet / {print $2}' | cut -d/ -f1)
-  # VPN-IP (nordlynx)
-  VPN_IP=$(ip -4 addr show nordlynx 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1)
-  # Öffentliche IP (über Cloudflare)
-  PUBLIC_IP=$(curl -s https://1.1.1.1/cdn-cgi/trace | grep '^ip=' | cut -d= -f2)
-  log "WAN-IP (${WAN_IF}): $WAN_IP"
-  log "LAN-IP (${LAN_IF}): $LAN_IP"
+
+  log "PUBLIC-IP: ${PUBLIC_IP}"
+  log "VPN-IP: ${VPN_IP}"
+  log "WAN-IP (${WAN_IF}): ${WAN_IP}"
+  log "LAN-IP (${LAN_IF}): ${LAN_IP}"
 else
   log "NordVPN disconnected"
   exit 1
@@ -286,7 +289,7 @@ echo "OK: NordVPN dynamische Regeln aktiv (LAN via vpn, fwmark 0x520 → vpn)."
 
 snapshot "VPN Connection established"
 # Teste Dummy-Traffic durchleiten
-curl -s --interface nordlynx https://ifconfig.me || log "Fehler: curl nordlynx geht nicht"
+curl -s --max-time 5 --interface nordlynx https://ifconfig.me || log "Fehler: curl nordlynx geht nicht"
 log "Log: $LOGFILE"
 log "Ready: LAN ${LAN_NET} routes via NordVPN to $PUBLIC_IP"
 

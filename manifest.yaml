@@ -54,7 +54,7 @@ files:
     group: root
 
   - src: src/system/etc/zerberus/unbound-fallback.conf
-    dst: /etc/zerberus/sysctl.conf
+    dst: /etc/zerberus/unbound-fallback.conf
     mode: "0644"
     owner: root
     group: root
