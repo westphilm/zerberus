@@ -4,23 +4,29 @@ set -euo pipefail
 ### Variablen
 NVPSRV=${1:-}
 LOGFILE="/var/log/nordvpn-routing.log"
-LAN_IF="eth1"
-VPN_IF="nordlynx"
-LAN_NET="192.168.50.0/24"
-WG_NET="10.6.0.0/24"
+
+# Interfaces/Netze konfigurierbar machen (Defaults bleiben wie gehabt)
+LAN_IF="${LAN_IF:-eth1}"
+LAN_NET="${LAN_NET:-192.168.50.0/24}"
+WAN_IF="${WAN_IF:-eth0}"
+WAN_NET="${WAN_NET:-192.168.1.0/24}"
+VPN_IF="${VPN_IF:-nordlynx}"
+WG_IF="${WG_IF:-wg0}"
+WG_NET="${WG_NET:-10.6.0.0/24}"
+LAN_PROBE_IP="${LAN_PROBE_IP:-192.168.50.100}"
 
 TBL_VPN=100   # 'vpn'
 TBL_WAN=200   # 'wan'
 
 RPF_BASELINE=2
-RPF_IFACES=(all default eth0 eth1)
+RPF_IFACES=(all default "${WAN_IF}" "${LAN_IF}")
 
 
 mkdir -p "$(dirname "$LOGFILE")"
 touch "$LOGFILE"
 log(){ printf '%s [START] %s\n' "$(date '+%F %T')" "$*" | tee -a "$LOGFILE" ; }
 
-log "Starte VPN Routing für 192.168.50.0/24 → nordlynx"
+log "Starte VPN Routing für ${LAN_NET} → ${VPN_IF}"
 
 
 snapshot() {
@@ -85,7 +91,31 @@ enforce_rp_filter_baseline() {
     fi
   done
 
+  log "rp_filter: setze Basis (${RPF_BASELINE}) auf ${RPF_IFACES[*]}"
   set_rp_filter "${RPF_BASELINE}" "baseline" || return 1
+}
+
+ip2int() {
+  local IFS=.
+  read -r o1 o2 o3 o4 <<<"$1"
+  printf '%u' $(( (o1<<24) + (o2<<16) + (o3<<8) + o4 ))
+}
+
+cidr_contains_ip() {
+  local cidr="$1" ip="$2"
+  local net mask_bits mask
+
+  net="${cidr%/*}"
+  mask_bits="${cidr#*/}"
+
+  [[ -z "${net}" || -z "${mask_bits}" ]] && return 1
+  mask=$(( 0xFFFFFFFF << (32-mask_bits) & 0xFFFFFFFF ))
+
+  local ip_int net_int
+  ip_int="$(ip2int "${ip}")"
+  net_int="$(ip2int "${net}")"
+
+  [[ $((ip_int & mask)) -eq $((net_int & mask)) ]]
 }
 
 verify_wan_iface() {
@@ -97,8 +127,8 @@ verify_wan_iface() {
     log "Fehler: WAN-Interface ${iface} hat keine IPv4-Adresse"
     return 1
   fi
-  if [[ "${addr}" != 192.168.1.* ]]; then
-    log "Fehler: WAN-Interface ${iface} unerwartetes Netz (${addr}), Killswitch-Annahmen gelten nicht"
+  if ! cidr_contains_ip "${WAN_NET}" "${addr%%/*}"; then
+    log "Fehler: WAN-Interface ${iface} unerwartetes Netz (${addr}), Killswitch-Annahmen gelten nicht (soll: ${WAN_NET})"
     return 1
   fi
   if ! ip route show default | grep -q "dev ${iface}"; then
@@ -112,10 +142,13 @@ verify_killswitch_baseline() {
     log "Fehler: nftables-Chain ip filter FORWARD nicht verfügbar – Killswitch unklar"
     return 1
   fi
-  if ! nft list chain ip filter FORWARD | grep -q 'iifname { "eth1", "wg0" } oifname "eth0".*c_drop_generic.*drop'; then
-    log "Fehler: erwartete eth0-Killswitch-Drop-Regel fehlt (LAN/WG → eth0)"
+  local kill_handle
+  kill_handle="$(nft -a list chain ip filter FORWARD 2>/dev/null | awk '/c_drop_generic/ && /drop/ {print $NF; exit}')"
+  if [[ -z "${kill_handle}" ]]; then
+    log "Fehler: erwartete Killswitch-Drop-Regel fehlt (LAN/WG → ${WAN_IF})"
     return 1
   fi
+  log "Killswitch-Regel (c_drop_generic) vorhanden, Handle ${kill_handle}"
   if ! nft list chain ip nat POSTROUTING >/dev/null 2>&1; then
     log "Fehler: nftables-Chain ip nat POSTROUTING nicht verfügbar – NAT-Überwachung fehlt"
     return 1
@@ -125,6 +158,10 @@ verify_killswitch_baseline() {
     return 1
   fi
 
+  local nat_handle
+  nat_handle="$(nft -a list chain ip nat POSTROUTING 2>/dev/null | awk '/c_masq_wan_public_bytes/ {print $NF; exit}')"
+  log "NAT-Kontrollzähler c_masq_wan_public_bytes Handle ${nat_handle:-unbekannt}"
+
   local wan_public_bytes
   wan_public_bytes="$(nft list counter ip nat c_masq_wan_public_bytes 2>/dev/null | awk '/bytes/ {print $NF; exit}')"
   if [[ -n "${wan_public_bytes}" && "${wan_public_bytes}" != "0" ]]; then
@@ -133,13 +170,13 @@ verify_killswitch_baseline() {
 }
 
 # Robustheit direkt nach Reboot:
-# warten, bis eth1 eine IP hat
+# warten, bis LAN eine IP hat
 for i in {1..10}; do
-  ip -4 addr show dev eth1 | grep -q 'inet ' && break
+  ip -4 addr show dev "${LAN_IF}" | grep -q 'inet ' && break
   sleep 0.5
 done
 
-verify_wan_iface "eth0" || exit 3
+verify_wan_iface "${WAN_IF}" || exit 3
 verify_killswitch_baseline || exit 4
 
 if ! enforce_rp_filter_baseline; then
@@ -151,6 +188,7 @@ if ! set_rp_filter 0 "pre-connect"; then
   log "Abbruch: rp_filter konnte nicht auf 0 gesetzt werden"
   exit 10
 fi
+log "rp_filter: temporär 0 für Verbindungsaufbau (Ifaces: ${RPF_IFACES[*]})"
 trap "set_rp_filter ${RPF_BASELINE} cleanup-exit || true" EXIT
 
 # 1) VPN verbunden?
@@ -185,13 +223,14 @@ if sudo -n /usr/bin/nordvpn status | grep -qi 'Status: Connected'; then
   log "PUBLIC-IP: $PUBLIC_IP"
   VPN_IP=$(ip -4 addr show nordlynx | awk '/inet / {print $2}' | cut -d/ -f1)
   log "VPN-IP: $VPN_IP"
-  # LAN-IP (eth0)
-  LAN_IP=$(ip -4 addr show eth0 | awk '/inet / {print $2}' | cut -d/ -f1)
+  WAN_IP=$(ip -4 addr show "${WAN_IF}" | awk '/inet / {print $2}' | cut -d/ -f1)
+  LAN_IP=$(ip -4 addr show "${LAN_IF}" | awk '/inet / {print $2}' | cut -d/ -f1)
   # VPN-IP (nordlynx)
   VPN_IP=$(ip -4 addr show nordlynx 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1)
   # Öffentliche IP (über Cloudflare)
   PUBLIC_IP=$(curl -s https://1.1.1.1/cdn-cgi/trace | grep '^ip=' | cut -d= -f2)
-  log "LAN-IP: $LAN_IP"
+  log "WAN-IP (${WAN_IF}): $WAN_IP"
+  log "LAN-IP (${LAN_IF}): $LAN_IP"
 else
   log "NordVPN disconnected"
   exit 1
@@ -199,7 +238,7 @@ fi
 
 # Warten bis nordlynx auch routingfähig ist
 for i in {1..10}; do
-  ip route get 1.1.1.1 from 192.168.50.100 table vpn 2>/dev/null | grep -q "nordlynx" && break
+  ip route get 1.1.1.1 from "${LAN_PROBE_IP}" table vpn 2>/dev/null | grep -q "nordlynx" && break
   sleep 0.5
 done
 
@@ -214,9 +253,9 @@ del_pref 110
 ### 2) Default-Route in Tabelle 'vpn' via nordlynx setzen
 ip route replace table ${TBL_VPN} default dev "${VPN_IF}"
 # lokale Netze auch in table vpn bekannt machen (damit Lokalziele NICHT in den Tunnel gehen)
-ip route replace table ${TBL_VPN} 192.168.50.0/24 dev "${LAN_IF}" scope link
-ip route replace table ${TBL_VPN} 192.168.1.0/24  dev eth0        scope link
-ip route replace table ${TBL_VPN} 10.6.0.0/24     dev wg0         scope link 2>/dev/null || true
+ip route replace table ${TBL_VPN} ${LAN_NET} dev "${LAN_IF}" scope link
+ip route replace table ${TBL_VPN} ${WAN_NET} dev "${WAN_IF}" scope link
+ip route replace table ${TBL_VPN} ${WG_NET}  dev "${WG_IF}"   scope link 2>/dev/null || true
 # (optional, falls nicht ohnehin da)
 ip route replace table ${TBL_VPN} 10.5.0.0/16     dev "${VPN_IF}" scope link 2>/dev/null || true
 
@@ -235,6 +274,7 @@ replace_rule 110 fwmark 0x520 lookup ${TBL_VPN}
 
 ### 5)
 # nach erfolgreichem Connect + Regeln:
+log "rp_filter: stelle Baseline ${RPF_BASELINE} nach Setup wieder her"
 if ! set_rp_filter "${RPF_BASELINE}" "post-setup"; then
   log "Abbruch: rp_filter konnte nicht auf ${RPF_BASELINE} zurückgestellt werden"
   exit 11
@@ -248,6 +288,6 @@ snapshot "VPN Connection established"
 # Teste Dummy-Traffic durchleiten
 curl -s --interface nordlynx https://ifconfig.me || log "Fehler: curl nordlynx geht nicht"
 log "Log: $LOGFILE"
-log "Ready: LAN 192.168.50.0/24 routes via NordVPN to $PUBLIC_IP"
+log "Ready: LAN ${LAN_NET} routes via NordVPN to $PUBLIC_IP"
 
 exit 0
