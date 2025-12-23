@@ -38,3 +38,8 @@ import yaml  # type: ignore
 ```
 ---
 
+## MANUELL!
+
+  $ sudo chmod +x /usr/local/sbin/nordvpn-*.sh
+  $ sudo chmod +x /opt/zerberus/deploy/deploy.py
+  $ sudo chmod +x /opt/zerberus/deploy/redeploy.sh
