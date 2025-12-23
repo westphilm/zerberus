@@ -25,6 +25,12 @@ mkdir -p "$(dirname "$LOGFILE")"
 touch "$LOGFILE"
 log(){ printf '%s [STOP ] %s\n' "$(date '+%F %T')" "$*" | tee -a "$LOGFILE" ; }
 
+fetch_public_ip() {
+  local ip
+  ip=$(curl -s --max-time 5 --retry 2 --retry-delay 1 https://1.1.1.1/cdn-cgi/trace | awk -F= '/^ip=/{print $2; exit}')
+  echo "${ip:-unbekannt}"
+}
+
 
 snapshot() {
   # show all rules: sudo nft list ruleset
@@ -75,7 +81,7 @@ if sudo -n /usr/bin/nordvpn status | grep -qi 'Status: Connected'; then
     log "NordVPN not connected"
   fi
 
-  PUBLIC_IP=$(curl -s https://1.1.1.1/cdn-cgi/trace | grep '^ip=' | cut -d= -f2)
+  PUBLIC_IP=$(fetch_public_ip)
   log "Public IP: $PUBLIC_IP"
 
   # LAN-IP (eth0)
@@ -83,7 +89,6 @@ if sudo -n /usr/bin/nordvpn status | grep -qi 'Status: Connected'; then
 
 
   # Öffentliche IP (über Cloudflare)
-  PUBLIC_IP=$(curl -s https://1.1.1.1/cdn-cgi/trace | grep '^ip=' | cut -d= -f2)
   log "PUBLIC-IP: $PUBLIC_IP"
   log "LAN-IP: $LAN_IP"
 
