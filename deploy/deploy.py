@@ -83,6 +83,7 @@ def load_manifest(manifest_path: Path, repo_root: Path) -> List[FileEntry]:
     if not isinstance(data, dict) or "files" not in data or not isinstance(data["files"], list):
         raise ValueError("Manifest must contain top-level key: files: [ ... ]")
 
+    base_dir = manifest_path.parent
     entries: List[FileEntry] = []
     for i, item in enumerate(data["files"], start=1):
         if not isinstance(item, dict):
@@ -92,7 +93,14 @@ def load_manifest(manifest_path: Path, repo_root: Path) -> List[FileEntry]:
             if key not in item:
                 raise ValueError(f"Entry #{i} missing key: {key}")
 
-        src = (repo_root / str(item["src"])).resolve()
+        ## src = (repo_root / str(item["src"])).resolve()
+        src_raw = Path(str(item["src"]))
+        src_candidates = [base_dir / src_raw, repo_root / src_raw]
+        src = next((c.resolve() for c in src_candidates if c.exists()), None)
+        if src is None:
+        raise FileNotFoundError(
+            f"Entry #{i} source not found in manifest-relative or repo root: {src_raw}"
+        )
         dst = Path(str(item["dst"]))
 
         if not str(dst).startswith("/"):
@@ -190,7 +198,7 @@ def systemd_daemon_reload(dry_run: bool) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Deploy zerberus system files from manifest.")
-    parser.add_argument("--manifest", default="manifest.yaml", help="Path to manifest YAML (default: manifest.yaml)")
+    parser.add_argument("--manifest", default="deploy/manifest.yaml", help="Path to manifest YAML (default: deploy/manifest.yaml)")
     parser.add_argument("--dry-run", action="store_true", help="Show actions, do not modify system")
     parser.add_argument("--systemd-reload", action="store_true", help="Run 'systemctl daemon-reload' after deploy")
     args = parser.parse_args()

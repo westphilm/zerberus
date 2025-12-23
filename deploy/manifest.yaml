@@ -1,89 +1,89 @@
 files:
-  - src: src/system/etc/systemd/system/nordvpn-wrapper.service
+  - src: ../src/system/etc/systemd/system/nordvpn-wrapper.service
     dst: /etc/systemd/system/nordvpn-wrapper.service
     mode: "0644"
     owner: root
     group: root
 
-  - src: src/system/etc/systemd/system/nordvpn-wrapper@.service
+  - src: ../src/system/etc/systemd/system/nordvpn-wrapper@.service
     dst: /etc/systemd/system/nordvpn-wrapper@.service
     mode: "0644"
     owner: root
     group: root
 
-  - src: src/system/etc/unbound/unbound.conf.d/pi-hole.conf
+  - src: ../src/system/etc/unbound/unbound.conf.d/pi-hole.conf
     dst: /etc/unbound/unbound.conf.d/pi-hole.conf
     mode: "0644"
     owner: root
     group: root
 
-  - src: src/system/etc/dnsmasq.conf
+  - src: ../src/system/etc/dnsmasq.conf
     dst: /etc/dnsmasq.conf
     mode: "0644"
     owner: root
     group: root
 
-  - src: src/system/etc/dnsmasq-dhcp.conf
+  - src: ../src/system/etc/dnsmasq-dhcp.conf
     dst: /etc/dnsmasq-dhcp.conf
     mode: "0644"
     owner: root
     group: root
 
-  - src: src/system/etc/systemd/system/wg0.service
+  - src: ../src/system/etc/systemd/system/wg0.service
     dst: /etc/systemd/system/wg0.service
     mode: "0644"
     owner: root
     group: root
 
-  - src: src/system/etc/systemd/system/pi-boot-network-base.service
+  - src: ../src/system/etc/systemd/system/pi-boot-network-base.service
     dst: /etc/systemd/system/pi-boot-network-base.service
     mode: "0644"
     owner: root
     group: root
 
-  - src: src/system/etc/nftables.conf
+  - src: ../src/system/etc/nftables.conf
     dst: /etc/nftables.conf
     mode: "0644"
     owner: root
     group: root
 
-  - src: src/system/etc/sysctl.conf
+  - src: ../src/system/etc/sysctl.conf
     dst: /etc/sysctl.conf
     mode: "0644"
     owner: root
     group: root
 
-  - src: src/system/etc/zerberus/unbound-fallback.conf
+  - src: ../src/system/etc/zerberus/unbound-fallback.conf
     dst: /etc/zerberus/unbound-fallback.conf
     mode: "0644"
     owner: root
     group: root
 
-  - src: src/system/usr/local/sbin/nordvpn-start.sh
+  - src: ../src/system/usr/local/sbin/nordvpn-start.sh
     dst: /usr/local/sbin/nordvpn-start.sh
     mode: "0755"
     owner: root
     group: root
 
-  - src: src/system/usr/local/sbin/nordvpn-stop.sh
+  - src: ../src/system/usr/local/sbin/nordvpn-stop.sh
     dst: /usr/local/sbin/nordvpn-stop.sh
     mode: "0755"
     owner: root
     group: root
 
-  - src: src/system/usr/local/sbin/nordvpn-wrapper.sh
+  - src: ../src/system/usr/local/sbin/nordvpn-wrapper.sh
     dst: /usr/local/sbin/nordvpn-wrapper.sh
     mode: "0755"
     owner: root
     group: root
 
-  - src: src/system/usr/local/sbin/pi-boot-network-base.sh
+  - src: ../src/system/usr/local/sbin/pi-boot-network-base.sh
     dst: /usr/local/sbin/pi-boot-network-base.sh
     mode: "0755"
     owner: root
     group: root
 
-  - src: src/system/usr/local/sbin/wg-debug-snapshot.sh
+  - src: ../src/system/usr/local/sbin/wg-debug-snapshot.sh
     dst: /usr/local/sbin/wg-debug-snapshot.sh
     mode: "0755"
     owner: root

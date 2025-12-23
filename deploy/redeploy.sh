@@ -5,6 +5,7 @@ cd /opt/zerberus
 
 git pull
 sleep 1
-sudo ./deploy.py --systemd-reload
+
+sudo deploy/deploy.py --systemd-reload
 sleep 1
-sudo ./deploy.py --dry-run
+sudo deploy/deploy.py --dry-run
