@@ -7,6 +7,20 @@ WG_NET="10.6.0.0/24"
 TBL_VPN=100
 TBL_WAN=200
 
+del_pref() {
+  local p="$1"
+  while ip -4 rule show | grep -qE "^[[:space:]]*$p:"; do
+    ip -4 rule del pref "$p" 2>/dev/null || break
+  done
+}
+
+replace_rule() {
+  local pref="$1"
+  shift
+  del_pref "$pref"
+  ip -4 rule add pref "$pref" "$@" 2>/dev/null || true
+}
+
 mkdir -p "$(dirname "$LOGFILE")"
 touch "$LOGFILE"
 log(){ printf '%s [STOP ] %s\n' "$(date '+%F %T')" "$*" | tee -a "$LOGFILE" ; }
@@ -32,17 +46,13 @@ snapshot() {
 # 1) Dynamische fwmark-Umschaltung zurückdrehen
 # defensiv: falls schon eine 110er Rule existiert, einmal löschen
 ip rule del fwmark 0x520 lookup ${TBL_VPN} 2>/dev/null || true
-ip -4 rule del pref 110 2>/dev/null || true
-ip rule add fwmark 0x520 lookup ${TBL_WAN} priority 110 2>/dev/null || true
+replace_rule 110 fwmark 0x520 lookup ${TBL_WAN}
 
 # 2) Source-Policy für LAN via vpn entfernen (falls sie gesetzt wurde)
-# (Je nach Startscript-Formulierung beides versuchen:)
-ip rule del from ${LAN_NET} lookup ${TBL_VPN} 2>/dev/null || true
-ip rule del pref 1000 from ${LAN_NET} lookup ${TBL_VPN} 2>/dev/null || true
+del_pref 1000
 
 # Policy WG - VPN
-ip rule del from ${WG_NET} lookup ${TBL_VPN} 2>/dev/null || true
-ip rule del pref 95 from ${WG_NET} lookup ${TBL_VPN} 2>/dev/null || true
+del_pref 95
 
 # 3) vpn-Defaultroute entfernen (optional defensiv)
 ip route del table ${TBL_VPN} default 2>/dev/null || true
