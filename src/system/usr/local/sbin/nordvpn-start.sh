@@ -12,6 +12,8 @@ WG_NET="10.6.0.0/24"
 TBL_VPN=100   # 'vpn'
 TBL_WAN=200   # 'wan'
 
+RPF_IFACES=(all default eth0 eth1)
+
 
 mkdir -p "$(dirname "$LOGFILE")"
 touch "$LOGFILE"
@@ -55,6 +57,43 @@ replace_rule() {
   ip -4 rule add pref "$pref" "$@" 2>/dev/null || true
 }
 
+set_rp_filter() {
+  local value="$1"
+  local context="$2"
+  local iface effective
+
+  for iface in "${RPF_IFACES[@]}"; do
+    if ! sysctl -w "net.ipv4.conf.${iface}.rp_filter=${value}" >/dev/null 2>&1; then
+      log "Fehler: rp_filter ${iface} → ${value} (${context}) fehlgeschlagen (write)"
+      return 1
+    fi
+    effective="$(sysctl -n "net.ipv4.conf.${iface}.rp_filter" 2>/dev/null || echo "")"
+    if [[ "${effective}" != "${value}" ]]; then
+      log "Fehler: rp_filter ${iface} ist ${effective}, erwartet ${value} (${context})"
+      return 1
+    fi
+  done
+}
+
+verify_wan_iface() {
+  local iface="$1"
+  ip link show dev "${iface}" >/dev/null 2>&1 || { log "Fehler: WAN-Interface ${iface} fehlt"; return 1; }
+  local addr
+  addr="$(ip -4 addr show dev "${iface}" | awk '/inet / {print $2}' | head -n1)"
+  if [[ -z "${addr}" ]]; then
+    log "Fehler: WAN-Interface ${iface} hat keine IPv4-Adresse"
+    return 1
+  fi
+  if [[ "${addr}" != 192.168.1.* ]]; then
+    log "Fehler: WAN-Interface ${iface} unerwartetes Netz (${addr}), Killswitch-Annahmen gelten nicht"
+    return 1
+  fi
+  if ! ip route show default | grep -q "dev ${iface}"; then
+    log "Fehler: Default-Route liegt nicht auf ${iface} – Abbruch"
+    return 1
+  fi
+}
+
 # Robustheit direkt nach Reboot:
 # warten, bis eth1 eine IP hat
 for i in {1..10}; do
@@ -62,11 +101,13 @@ for i in {1..10}; do
   sleep 0.5
 done
 
-# kurz vor dem Connect: rp_filter lockern (Handshake-sicher)
-sysctl -w net.ipv4.conf.all.rp_filter=0  >/dev/null
-sysctl -w net.ipv4.conf.default.rp_filter=0 >/dev/null
-sysctl -w net.ipv4.conf.eth0.rp_filter=0 >/dev/null
-sysctl -w net.ipv4.conf.eth1.rp_filter=0 >/dev/null
+verify_wan_iface "eth0" || exit 3
+
+if ! set_rp_filter 0 "pre-connect"; then
+  log "Abbruch: rp_filter konnte nicht auf 0 gesetzt werden"
+  exit 10
+fi
+trap 'set_rp_filter 2 "cleanup-exit" || true' EXIT
 
 # 1) VPN verbunden?
 if sudo -n /usr/bin/nordvpn status | grep -qi 'Status: Connected'; then
@@ -190,10 +231,11 @@ replace_rule 110 fwmark 0x520 lookup ${TBL_VPN}
 
 ### 5)
 # nach erfolgreichem Connect + Regeln:
-sysctl -w net.ipv4.conf.all.rp_filter=2       >/dev/null
-sysctl -w net.ipv4.conf.default.rp_filter=2   >/dev/null
-sysctl -w net.ipv4.conf.eth0.rp_filter=2      >/dev/null
-sysctl -w net.ipv4.conf.eth1.rp_filter=2      >/dev/null
+if ! set_rp_filter 2 "post-setup"; then
+  log "Abbruch: rp_filter konnte nicht auf 2 zurückgestellt werden"
+  exit 11
+fi
+trap - EXIT
 sysctl -w net.ipv4.ip_forward=1               >/dev/null
 
 echo "OK: NordVPN dynamische Regeln aktiv (LAN via vpn, fwmark 0x520 → vpn)."
