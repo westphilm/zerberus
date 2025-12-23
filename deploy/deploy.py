@@ -98,9 +98,9 @@ def load_manifest(manifest_path: Path, repo_root: Path) -> List[FileEntry]:
         src_candidates = [base_dir / src_raw, repo_root / src_raw]
         src = next((c.resolve() for c in src_candidates if c.exists()), None)
         if src is None:
-        raise FileNotFoundError(
-            f"Entry #{i} source not found in manifest-relative or repo root: {src_raw}"
-        )
+            raise FileNotFoundError(
+                f"Entry #{i} source not found in manifest-relative or repo root: {src_raw}"
+            )
         dst = Path(str(item["dst"]))
 
         if not str(dst).startswith("/"):
