@@ -82,3 +82,9 @@ files:
     mode: "0755"
     owner: root
     group: root
+
+  - src: ../src/system/bin/nv
+    dst: /home/operator/bin/nv
+    mode: "0750"
+    owner: operator
+    group: pi

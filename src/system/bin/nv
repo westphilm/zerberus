@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+# nv.sh - NordVPN wrapper quick starter
+# Usage:
+#   ./nv.sh start                -> nordvpn-wrapper.service (restart if running)
+#   ./nv.sh start <instance>     -> nordvpn-wrapper@<instance>.service (restart if running)
+#   ./nv.sh stop                 -> stop both (plain + optional instance only if given)
+#   ./nv.sh status               -> show service + nordvpn status + public IP
+#
+# Tip:
+#   sudo install -m 0755 nv.sh /usr/local/bin/nv
+#   then use: nv start | nv start <instance> | nv stop | nv status
+
+set -euo pipefail
+
+LOG_PREFIX="[nv]"
+BASE_SERVICE="nordvpn-wrapper.service"
+TPL_SERVICE="nordvpn-wrapper@"
+
+say() { printf '%s %s\n' "$LOG_PREFIX" "$*"; }
+err() { printf '%s ERROR: %s\n' "$LOG_PREFIX" "$*" >&2; }
+
+need_cmd() {
+  command -v "$1" >/dev/null 2>&1 || { err "Missing command: $1"; exit 127; }
+}
+
+is_active() {
+  local svc="$1"
+  systemctl is-active --quiet "$svc"
+}
+
+stop_svc_if_active() {
+  local svc="$1"
+
+  # 1) Base-Service immer zuerst (wenn aktiv) stoppen
+  if is_active "$BASE_SERVICE"; then
+    say "Stopping base service first: $BASE_SERVICE"
+    sudo systemctl stop "$BASE_SERVICE"
+  else
+    say "Base service not active: $BASE_SERVICE"
+  fi
+
+  # 2) Danach Zielservice (Instance oder Base) stoppen, falls aktiv
+  if [[ "$svc" != "$BASE_SERVICE" ]]; then
+    if is_active "$svc"; then
+      say "Stopping target service: $svc"
+      sudo systemctl stop "$svc"
+    else
+      say "Target service not active: $svc"
+    fi
+  else
+    # svc == BASE_SERVICE ist bereits oben behandelt
+    :
+  fi
+
+  # 3) Safety: falls irgendeine Instance noch läuft, ebenfalls stoppen
+  # (System kann ggf. eine Instance aktiv halten)
+  local any_inst
+  any_inst="$(systemctl list-units --type=service --state=active "${TPL_SERVICE}*.service" --no-legend 2>/dev/null | awk '{print $1}' | head -n1 || true)"
+  if [[ -n "$any_inst" ]]; then
+    say "Stopping remaining active instance(s): ${TPL_SERVICE}*.service"
+    sudo systemctl stop "${TPL_SERVICE}*.service" || true
+  else
+    say "No active instances remaining: ${TPL_SERVICE}*.service"
+  fi
+}
+
+restart_svc() {
+  local svc="$1"
+
+  # Restart heißt: sauber alles runter, dann hoch
+  say "Restart sequence requested for: $svc"
+  stop_svc_if_active "$svc"
+
+  # Wenn vorher irgendwas lief, kurz Luft geben
+  sleep 2
+
+  say "Starting target service: $svc"
+  sudo systemctl start "$svc"
+  say "Started: $svc"
+}
+
+public_ip() {
+  # Fast, robust-ish: try curl first, then dig as fallback.
+  local ip=""
+  if command -v curl >/dev/null 2>&1; then
+    ip="$(curl -fsS --max-time 3 https://api.ipify.org 2>/dev/null || true)"
+    [[ -n "$ip" ]] || ip="$(curl -fsS --max-time 3 https://ifconfig.me/ip 2>/dev/null || true)"
+  fi
+  if [[ -z "${ip:-}" ]] && command -v dig >/dev/null 2>&1; then
+    ip="$(dig +short myip.opendns.com @resolver1.opendns.com 2>/dev/null | tail -n1 || true)"
+  fi
+  if [[ -n "${ip:-}" ]]; then
+    printf '%s' "$ip"
+  else
+    printf 'n/a'
+  fi
+}
+
+nordvpn_status() {
+  if command -v nordvpn >/dev/null 2>&1; then
+    nordvpn status 2>/dev/null || true
+  else
+    echo "nordvpn CLI not found (skipping 'nordvpn status')."
+  fi
+}
+
+svc_status_short() {
+  local svc="$1"
+  say "Service status: $svc"
+  systemctl --no-pager --full -l status "$svc" 2>/dev/null | sed -n '1,12p' || true
+}
+
+usage() {
+  cat <<EOF
+Usage:
+  nv start [instance]
+  nv stop  [instance]
+  nv status [instance]
+
+Examples:
+  nv start
+  nv start de
+  nv stop
+  nv status
+EOF
+}
+
+main() {
+  need_cmd systemctl
+
+  local cmd="${1:-}"
+  local instance="${2:-}"
+
+  if [[ -z "$cmd" ]]; then
+    usage
+    exit 2
+  fi
+
+  local svc=""
+  if [[ -n "$instance" ]]; then
+    svc="${TPL_SERVICE}${instance}.service"
+  else
+    svc="$BASE_SERVICE"
+  fi
+
+  case "$cmd" in
+    start)
+      say "Target service: $svc"
+      restart_svc "$svc"
+      ;;
+    stop)
+      say "Target service: $svc"
+      stop_svc_if_active "$svc"
+      ;;
+    status)
+      say "Target service: $svc"
+      ;;
+    *)
+      usage
+      exit 2
+      ;;
+  esac
+
+  # --- Post info (always) ---
+  echo
+  svc_status_short "$svc"
+  echo
+  say "NordVPN connection status:"
+  nordvpn_status
+  echo
+  say "Public IP: $(public_ip)"
+}
+
+main "$@"
