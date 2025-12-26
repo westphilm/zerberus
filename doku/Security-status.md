@@ -20,8 +20,8 @@ Verglichen werden zwei Varianten:
 | **Echte öffentliche IP**                  | ja                                  | ja                                 | nein                      |
 | **VPN-IP (Exit-IP)**                      | nein                                | ja                                 | ja                        |
 | **DNS-Ziel-IP (1.1.1.1 etc.)**            | nein                                | ja                                 | ja                        |
-| **Aufgerufene Domains (Klartext)**        | nein                                | nein                               | ja                        |
-| **DNS-Anfragen-Inhalt (verschlüsselt)**   | nein (verschlüsselt, Port 853 + VPN) | nein (verschlüsselt, Port 853)     | nein                      |
+| **Aufgerufene Domains (Klartext)**        | nein (VPN)                          | nein (verschlüsselt, Port 853)                              | ja                        |
+| **DNS-Anfragen-Inhalt (verschlüsselt)**   | nein (VPN)                          | nein (verschlüsselt, Port 853)     | nein                      |
 | **Nutzdaten (HTTPS/TLS)**                 | nein (verschlüsselte TLS-Metadaten) | nein (verschlüsselte TLS-Metadaten) | nein                      |
 | **Zeitpunkt / Frequenz von DNS-Anfragen** | nein                                | ja                                 | ja                        |
 | **Zuordnung DNS → echter Anschluss**      | ja (indirekt, Traffic-Metadaten)    | ja                                 | nein                      |
